@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>User & Admin System</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f6f9; }
+    .container { max-width: 500px; margin: 30px auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    h2 { text-align: center; color: #333; }
+    input, button { width: 100%; padding: 10px; margin: 8px 0; border-radius: 5px; border: 1px solid #ccc; }
+    button { background: #4CAF50; color: white; border: none; cursor: pointer; }
+    button:hover { background: #45a049; }
+    .hidden { display: none; }
+    .link { color: blue; cursor: pointer; text-decoration: underline; }
+    .terms { font-size: 12px; }
+    .slip-img { max-width: 100px; display: block; margin: 5px 0; }
+    .approve-btn { background: #2196F3; }
+    .approve-btn:hover { background: #0b7dda; }
+    .logout { background: red; }
+    .logout:hover { background: darkred; }
+    .withdraw-btn { background: green; }
+  </style>
+</head>
+<body>
+
+<div class="container" id="registerPage">
+  <h2>User Registration</h2>
+  <input type="text" id="username" placeholder="Username" required>
+  <input type="email" id="email" placeholder="Email" required>
+  <input type="tel" id="phone" placeholder="Phone Number" required>
+  <div style="position:relative;">
+    <input type="password" id="password" placeholder="Password" required>
+    <span onclick="togglePassword('password')" style="position:absolute; right:10px; top:12px; cursor:pointer;">👁</span>
+  </div>
+  <div style="position:relative;">
+    <input type="password" id="confirmPassword" placeholder="Confirm Password" required>
+    <span onclick="togglePassword('confirmPassword')" style="position:absolute; right:10px; top:12px; cursor:pointer;">👁</span>
+  </div>
+  <label class="terms">
+    <input type="checkbox" id="agree"> I agree to the terms and conditions
+  </label>
+  <button onclick="registerUser()">Register</button>
+  <p>Already registered? <span class="link" onclick="showLogin()">Login</span></p>
+  <p><span class="link" onclick="showAdminLogin()">Admin?</span></p>
+</div>
+
+<div class="container hidden" id="loginPage">
+  <h2>User Login</h2>
+  <input type="text" id="loginUsername" placeholder="Username">
+  <input type="password" id="loginPassword" placeholder="Password">
+  <button onclick="loginUser()">Login</button>
+  <p><span class="link" onclick="showRegister()">Back to Register</span></p>
+</div>
+
+<div class="container hidden" id="userDashboard">
+  <h2>User Dashboard</h2>
+  <p><b>Welcome, <span id="displayUser"></span></b></p>
+  <p>Balance: ₦<span id="userBalance">Pending (₦0)</span></p>
+  
+  <div id="slipSection">
+    <p>You have to Pay ₦5000 to Account: <br>8144281750 Opay (DAUDA JOSEPH) let the admin approve you to cashout</p>
+    <h3>Please upload your payment receipt to be comfirm</h3>
+    <input type="file" id="slipUpload" accept="image/*" onchange="previewSlip(event)">
+    <img id="slipPreview" class="slip-img hidden">
+    <button onclick="submitSlip()">Submit Slip</button>
+  </div>
+
+  <div id="withdrawSection" class="hidden">
+    <button class="withdraw-btn">Withdraw</button>
+  </div>
+  
+  <button class="logout" onclick="logout()">Logout</button>
+</div>
+
+<div class="container hidden" id="adminLogin">
+  <h2>Admin Login</h2>
+  <input type="password" id="adminPassword" placeholder="Enter Admin Password">
+  <button onclick="loginAdmin()">Login</button>
+  <p><span class="link" onclick="showRegister()">Back</span></p>
+</div>
+
+<div class="container hidden" id="adminDashboard">
+  <h2>Admin Dashboard</h2>
+  <div id="userSlips"></div>
+  <button class="logout" onclick="logoutAdmin()">Logout</button>
+</div>
+
+<script>
+let users = JSON.parse(localStorage.getItem("users")) || [];
+let currentUser = null;
+
+function togglePassword(id) {
+  let field = document.getElementById(id);
+  field.type = (field.type === "password") ? "text" : "password";
+}
+
+function saveUsers() {
+  localStorage.setItem("users", JSON.stringify(users));
+}
+
+function registerUser() {
+  let username = document.getElementById("username").value.trim();
+  let email = document.getElementById("email").value.trim();
+  let phone = document.getElementById("phone").value.trim();
+  let password = document.getElementById("password").value;
+  let confirmPassword = document.getElementById("confirmPassword").value;
+  let agree = document.getElementById("agree").checked;
+
+  if (!username || !email || !phone || !password || !confirmPassword) {
+    alert("Please fill in all fields");
+    return;
+  }
+  if (password !== confirmPassword) {
+    alert("Passwords do not match!");
+    return;
+  }
+  if (!agree) {
+    alert("You must agree to the terms!");
+    return;
+  }
+  if (users.find(u => u.username === username)) {
+    alert("Username already exists!");
+    return;
+  }
+
+  let user = { username, email, phone, password, balance: 0, slip: null, approved: false };
+  users.push(user);
+  saveUsers();
+  alert("Registration successful!");
+  showLogin();
+}
+
+function showLogin() {
+  document.getElementById("registerPage").classList.add("hidden");
+  document.getElementById("loginPage").classList.remove("hidden");
+  document.getElementById("adminLogin").classList.add("hidden");
+}
+
+function showRegister() {
+  document.getElementById("registerPage").classList.remove("hidden");
+  document.getElementById("loginPage").classList.add("hidden");
+  document.getElementById("adminLogin").classList.add("hidden");
+}
+
+function showAdminLogin() {
+  document.getElementById("registerPage").classList.add("hidden");
+  document.getElementById("loginPage").classList.add("hidden");
+  document.getElementById("adminLogin").classList.remove("hidden");
+}
+
+function loginUser() {
+  let username = document.getElementById("loginUsername").value.trim();
+  let password = document.getElementById("loginPassword").value;
+
+  let user = users.find(u => u.username === username && u.password === password);
+  if (!user) {
+    alert("Invalid login!");
+    return;
+  }
+
+  currentUser = user;
+  localStorage.setItem("currentUser", username);
+  loadUserDashboard();
+}
+
+function loadUserDashboard() {
+  document.getElementById("loginPage").classList.add("hidden");
+  document.getElementById("userDashboard").classList.remove("hidden");
+
+  document.getElementById("displayUser").textContent = currentUser.username;
+  document.getElementById("userBalance").textContent = currentUser.approved ? "150000" : "Pending (₦0)";
+
+  if (currentUser.approved) {
+    document.getElementById("withdrawSection").classList.remove("hidden");
+    document.getElementById("slipSection").classList.add("hidden");
+  } else {
+    document.getElementById("withdrawSection").classList.add("hidden");
+    document.getElementById("slipSection").classList.remove("hidden");
+  }
+}
+
+function previewSlip(event) {
+  let file = event.target.files[0];
+  if (file) {
+    let reader = new FileReader();
+    reader.onload = function(e) {
+      document.getElementById("slipPreview").src = e.target.result;
+      document.getElementById("slipPreview").classList.remove("hidden");
+    }
+    reader.readAsDataURL(file);
+  }
+}
+
+function submitSlip() {
+  if (!document.getElementById("slipPreview").src) {
+    alert("Upload a slip first!");
+    return;
+  }
+  currentUser.slip = document.getElementById("slipPreview").src;
+  saveUsers();
+  alert("Slip submitted! Wait for admin approval.");
+}
+
+function logout() {
+  currentUser = null;
+  localStorage.removeItem("currentUser");
+  showLogin();
+  document.getElementById("userDashboard").classList.add("hidden");
+}
+
+function loginAdmin() {
+  let pass = document.getElementById("adminPassword").value;
+  if (pass === "225500") {
+    document.getElementById("adminLogin").classList.add("hidden");
+    document.getElementById("adminDashboard").classList.remove("hidden");
+    loadAdminDashboard();
+  } else {
+    alert("Wrong admin password!");
+  }
+}
+
+function loadAdminDashboard() {
+  let list = document.getElementById("userSlips");
+  list.innerHTML = "";
+
+  users.forEach((u, index) => {
+    if (u.slip && !u.approved) {
+      let div = document.createElement("div");
+      div.innerHTML = `
+        <p><b>${u.username}</b> uploaded slip:</p>
+        <img src="${u.slip}" class="slip-img">
+        <button class="approve-btn" onclick="approveUser(${index})">Approve</button>
+        <hr>`;
+      list.appendChild(div);
+    }
+  });
+
+  if (list.innerHTML === "") {
+    list.innerHTML = "<p>No pending slips.</p>";
+  }
+}
+
+function approveUser(index) {
+  users[index].approved = true;
+  users[index].balance = 150000;
+  users[index].slip = null;
+  saveUsers();
+  loadAdminDashboard();
+  alert("User approved!");
+}
+
+function logoutAdmin() {
+  document.getElementById("adminDashboard").classList.add("hidden");
+  showRegister();
+}
+
+window.onload = function() {
+  let savedUser = localStorage.getItem("currentUser");
+  if (savedUser) {
+    currentUser = users.find(u => u.username === savedUser);
+    if (currentUser) loadUserDashboard();
+  }
+};
+</script>
+
+</body>
+</html>
